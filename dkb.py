@@ -407,6 +407,11 @@ if __name__ == '__main__':
     dkb2qif = DkbConverter(csv_text)
     dkb2qif.export_to(args.output)
 
+# Testing
+# =======
+# python -m unittest dkb
+# test_fetcher will fail unless you manually create test data, see below
+
 import unittest
 class TestDkb(unittest.TestCase):
     def test_csv(self):
