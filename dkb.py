@@ -411,7 +411,7 @@ import unittest
 class TestDkb(unittest.TestCase):
     def test_csv(self):
         text = open("tests/example.csv", "rb").read()
-        c = DkbConverter(text.decode("latin1"))
+        c = DkbConverter(text)
         c.export_to("/tmp/output.qif")
 
     def test_fetcher(self):
