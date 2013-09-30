@@ -16,7 +16,7 @@ this should suffice:
 
 Usage
 -----
-./dkb.py --userid USER --cardid 1234 --output dkb.qif
+    ./dkb.py --userid USER --cardid 1234 --output dkb.qif
 
 with USER being the name you are using at the regular DKB online banking web site as well, with 1234 being the last four digits of your card (to select the proper card) and with dkb.qif being the output file.
 
