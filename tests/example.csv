@@ -1,0 +1,12 @@
+"Kreditkarte:";"1234********5678 Kreditkarte";
+
+"Von:";"24.09.2012";
+"Bis:";"23.09.2013";
+"Saldo:";"1234.56 EUR";
+"Datum:";"20.09.2013";
+
+"Umsatz abgerechnet";"Wertstellung";"Belegdatum";"Umsatzbeschreibung";"Betrag (EUR)";"Ursprünglicher Betrag";
+"Ja";"21.09.2013";"20.09.2013";"Buchung 1 äöüß";"1,23";"";
+"Ja";"20.09.2013";"19.09.2013";"Buchung 2";"-100,00";"";
+"Ja";"17.09.2013";"16.09.2013";"Buchung 3";"+100,00";"";
+"Nein";"16.09.2013";"14.09.2013";"Buchung 4";"-500,00";"";
