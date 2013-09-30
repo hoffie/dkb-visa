@@ -2,10 +2,18 @@ DKB VISA QIF Exporter
 =====================
 The German bank DKB does not provide access to VISA transactions using HBCI, which is why this script has been written.
 
+It will get you your DKB VISA transactions in the QIF format.
+
 It has been inspired by Jens Herrmann's web_bank.py, but has been written using some newer tools/frameworks such as BeautifulSoup and mechanize, in the hope that it will be more stable against changes on the DKB web site.
 
 Thanks to Jens Herrmann for the initial work nevertheless!
 
+
+How does it work?
+-----------------
+It will log-in as you at DKB's online banking website, will pretend to be
+you, will use the CSV export feature and will convert the fetched data to
+the QIF format, which can be important by several financial tools.
 
 Requirements
 ------------
