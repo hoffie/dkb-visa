@@ -236,7 +236,7 @@ class DkbConverter(object):
     # transaction line:
     REQUIRED_FIELDS = 5
 
-    def __init__(self, csv_text, default_category=None):
+    def __init__(self, csv_text, default_category=None, cc_name=None):
         """
         Constructor
 
@@ -249,6 +249,7 @@ class DkbConverter(object):
             .decode(self.INPUT_CHARSET)
             .encode(self.OUTPUT_CHARSET))
         self.DEFAULT_CATEGORY = default_category
+        self.CREDIT_CARD_NAME = cc_name or 'VISA'
 
     def format_date(self, line):
         """
@@ -404,7 +405,7 @@ if __name__ == '__main__':
     fetcher.select_transactions(args.cardid, from_date, args.to_date)
     csv_text = fetcher.get_transaction_csv()
 
-    dkb2qif = DkbConverter(csv_text)
+    dkb2qif = DkbConverter(csv_text, cc_name=args.qif_account)
     dkb2qif.export_to(args.output)
 
 # Testing
