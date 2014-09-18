@@ -32,7 +32,7 @@ DEBUG = False
 logger = logging.getLogger(__name__)
 
 class DkbScraper(object):
-    BASEURL = "https://banking.dkb.de/portal/portal/"
+    BASEURL = "https://banking.dkb.de/dkb/-"
 
     def __init__(self):
         self.br = Browser()
@@ -55,20 +55,21 @@ class DkbScraper(object):
         # long (infinite?) sleep() call
         br.set_handle_refresh(False)
 
-        br.open(self.BASEURL)
+        br.open(self.BASEURL + '?$javascript=disabled')
 
         # select login form:
         br.form = list(br.forms())[0]
 
-        for control in br.form.controls:
-            for label in control.get_labels():
-                if 'name' in label.text.lower():
-                    control.value = userid
-                    continue
-                elif 'pin' in label.text.lower():
-                    control.value = pin
-                    continue
+        br.set_all_readonly(False)
+        br.form["j_username"] = userid
+        br.form["j_password"] = pin
+        br.form["browserName"] = "Firefox"
+        br.form["browserVersion"] = "40"
+        br.form["screenWidth"] = "1000"
+        br.form["screenHeight"] = "800"
+        br.form["osName"] = "Windows"
         br.submit()
+        br.open(self.BASEURL + "?$javascript=disabled")
 
     def credit_card_transactions_overview(self):
         """
@@ -81,9 +82,11 @@ class DkbScraper(object):
         for link in br.links():
             if re.search("Kreditkartenums.*tze", link.text, re.I):
                 br.follow_link(link)
-                if 'redirect' in link.url.lower():
-                    br.follow_link(text="here")
                 return
+            if 'weitergeleitet' in link.text:
+                br.follow_link(link)
+            if link.text == 'here':
+                br.follow_link(text="here")
         raise RuntimeError("Unable to find link 'Kreditkartenumsätze' -- "
             "Maybe the login went wrong?")
 
