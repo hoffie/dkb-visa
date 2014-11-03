@@ -13,7 +13,7 @@ How does it work?
 -----------------
 It will log-in as you at DKB's online banking website, will pretend to be
 you, will use the CSV export feature and will convert the fetched data to
-the QIF format, which can be important by several financial tools.
+the QIF format, which can be imported by several financial tools.
 
 Requirements
 ------------
