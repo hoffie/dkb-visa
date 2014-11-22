@@ -372,6 +372,9 @@ if __name__ == '__main__':
     cli.add_argument("--to-date",
         help="Export transactions until... (DD.MM.YYYY)",
         default=date.today().strftime('%d.%m.%Y'))
+    cli.add_argument("--raw", action="store_true",
+        help="Store the raw CSV file instead of QIF")
+
     args = cli.parse_args()
     if not args.userid:
         cli.error("Please specify a valid user id")
@@ -412,8 +415,15 @@ if __name__ == '__main__':
     fetcher.select_transactions(args.cardid, from_date, args.to_date)
     csv_text = fetcher.get_transaction_csv()
 
-    dkb2qif = DkbConverter(csv_text, cc_name=args.qif_account)
-    dkb2qif.export_to(args.output)
+    if args.raw:
+        if args.output == '-':
+            f = sys.stdout
+        else:
+            f = open(args.output, 'w')
+        f.write(csv_text)
+    else:
+        dkb2qif = DkbConverter(csv_text, cc_name=args.qif_account)
+        dkb2qif.export_to(args.output)
 
 # Testing
 # =======
