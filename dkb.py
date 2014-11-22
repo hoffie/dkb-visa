@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 # DKB Credit card transaction QIF exporter
 # Copyright (C) 2013 Christian Hoffmann <mail@hoffmann-christian.info>
