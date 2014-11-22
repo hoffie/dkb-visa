@@ -390,8 +390,12 @@ if __name__ == '__main__':
         cli.error("Please specify a valid output path")
 
     pin = ""
-    while not pin.strip():
-        pin = getpass('PIN: ')
+    import os
+    if os.isatty(0):
+        while not pin.strip():
+            pin = getpass('PIN: ')
+    else:
+        pin = sys.stdin.read().strip()
 
     fetcher = DkbScraper()
 
