@@ -8,6 +8,8 @@ It has been inspired by Jens Herrmann's web_bank.py, but has been written using 
 
 Thanks to Jens Herrmann for the initial work nevertheless!
 
+You may also be interested in the derived project `"dkbweb" by Tom <https://code.google.com/p/dkbweb/>`_ which provides additional features such as bank account transaction exporting.
+
 
 How does it work?
 -----------------
