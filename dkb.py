@@ -501,4 +501,4 @@ class TestDkb(unittest.TestCase):
         f.login("test", "1234")
         f.credit_card_transactions_overview()
         f.select_transactions("5678", "01.01.2013", "01.09.2013")
-        print f.get_transaction_csv()
+        print(f.get_transaction_csv())
