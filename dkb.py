@@ -393,7 +393,10 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
     from datetime import date
 
-    logging.basicConfig(level=logging.DEBUG)
+    level = logging.INFO
+    if DEBUG:
+        level = logging.DEBUG
+    logging.basicConfig(level=level, format='%(message)s')
 
     cli = ArgumentParser()
     cli.add_argument("--userid",
