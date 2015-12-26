@@ -366,6 +366,8 @@ class DkbConverter(object):
         for line in reader:
             if len(line) < self.REQUIRED_FIELDS:
                 continue
+            if len(line[self.COL_VALUTA_DATE]) == 0:
+                continue
             yield 'D%s' % self.format_date(line)
             yield 'T%s' % self.format_value(line)
             yield 'M%s' % self.format_description(line)
