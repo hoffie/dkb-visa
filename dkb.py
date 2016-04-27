@@ -95,7 +95,7 @@ class DkbScraper(object):
         br.open(self.BASEURL + '?$javascript=disabled')
 
         # select login form:
-        br.form = list(br.forms())[0]
+        br.form = list(br.forms())[1]
 
         br.set_all_readonly(False)
         br.form["j_username"] = userid
