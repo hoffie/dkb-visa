@@ -228,6 +228,10 @@ class DkbScraper(object):
         br.form = form = self._get_transaction_selection_form()
         self._select_credit_card(form, cardid)
         self._select_all_transactions_from(form, from_date, to_date)
+
+        # add missing $event control
+        br.form.new_control('hidden', '$event', {'value': 'search'})
+        br.form.fixup()
         br.submit()
 
     def get_transaction_csv(self):
