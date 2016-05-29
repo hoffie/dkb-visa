@@ -303,8 +303,14 @@ class DkbConverter(object):
         @param list line
         @return str
         """
-        return re.sub('.*?(\d{1,2})\.(\d{1,2})\.(\d{2,4}).*?', r'\2/\1/\3',
-            line[self.COL_VALUTA_DATE])
+        date_re = re.compile('.*?(\d{1,2})\.(\d{1,2})\.(\d{2,4}).*?')
+        if date_re.match(line[self.COL_VALUTA_DATE]):
+            # use valuta date if available
+            field = self.COL_VALUTA_DATE
+        else:
+            # ... default to regular date column otherwise:
+            field = self.COL_DATE
+        return date_re.sub(r'\2/\1/\3', line[field])
 
     def format_value(self, line):
         """
