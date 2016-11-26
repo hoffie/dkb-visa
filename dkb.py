@@ -116,14 +116,21 @@ class DkbScraper(object):
         logger.info("Navigating to 'Kreditkartenumsätze'...")
         br = self.br
         overview_html = get_bs(br.response().read())
-        for link in br.links():
-            if re.search("Kreditkartenums.*tze", link.text, re.I):
-                br.follow_link(link)
-                return
-            if 'weitergeleitet' in link.text:
-                br.follow_link(link)
-            if link.text == 'here':
-                br.follow_link(text="here")
+
+        def find_link():
+            from lxml import etree
+            html = etree.HTML(str(overview_html))
+            for tr in html.findall('.//tr[@class="mainRow"]'):
+                div = tr.find('.//div[@class="forceWrap"]')
+                if "Kreditkarte" not in div.text:
+                    continue
+                a = tr.find('.//a[@class="evt-paymentTransaction"]')
+                return a.attrib['href']
+        link = br.find_link(url=find_link())
+        if link:
+            br.follow_link(link)
+            return
+
         raise RuntimeError("Unable to find link 'Kreditkartenumsätze' -- "
             "Maybe the login went wrong?")
 
@@ -135,7 +142,7 @@ class DkbScraper(object):
         """
         for form in self.br.forms():
             try:
-                form.find_control(name="slCreditCard")
+                form.find_control(name="slAllAccounts")
                 return form
             except Exception:
                 continue
@@ -196,7 +203,7 @@ class DkbScraper(object):
         @param str cardid: last 4 digits of the relevant card number
         """
         try:
-            cc_list = form.find_control(name="slCreditCard")
+            cc_list = form.find_control(name="slAllAccounts")
         except Exception:
             raise RuntimeError("Unable to find credit card selection form")
 
