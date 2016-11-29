@@ -31,7 +31,7 @@ DEBUG = False
 logger = logging.getLogger(__name__)
 
 class DkbScraper(object):
-    BASEURL = "https://banking.dkb.de/dkb/-"
+    BASEURL = "https://www.dkb.de/-"
 
     def __init__(self):
         self.br = mechanize.Browser()
