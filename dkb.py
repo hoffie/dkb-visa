@@ -113,19 +113,12 @@ class DkbScraper(object):
         Navigates the internal browser state to the credit card
         transaction overview menu
         """
-        logger.info("Navigating to 'Kreditkartenumsätze'...")
-        br = self.br
-        overview_html = get_bs(br.response().read())
-        for link in br.links():
-            if re.search("Kreditkartenums.*tze", link.text, re.I):
-                br.follow_link(link)
-                return
-            if 'weitergeleitet' in link.text:
-                br.follow_link(link)
-            if link.text == 'here':
-                br.follow_link(text="here")
-        raise RuntimeError("Unable to find link 'Kreditkartenumsätze' -- "
-            "Maybe the login went wrong?")
+        logger.info("Navigating to 'Umsätze'...")
+        try:
+            return self.br.follow_link(url_regex='banking/finanzstatus/kontoumsaetze')
+        except Exception:
+            raise RuntimeError('Unable to find link Umsätze -- '
+                               'Maybe the login went wrong?')
 
     def _get_transaction_selection_form(self):
         """
@@ -135,7 +128,7 @@ class DkbScraper(object):
         """
         for form in self.br.forms():
             try:
-                form.find_control(name="slCreditCard")
+                form.find_control(name="slAllAccounts")
                 return form
             except Exception:
                 continue
@@ -196,7 +189,7 @@ class DkbScraper(object):
         @param str cardid: last 4 digits of the relevant card number
         """
         try:
-            cc_list = form.find_control(name="slCreditCard")
+            cc_list = form.find_control(name="slAllAccounts")
         except Exception:
             raise RuntimeError("Unable to find credit card selection form")
 
@@ -227,6 +220,10 @@ class DkbScraper(object):
 
         br.form = form = self._get_transaction_selection_form()
         self._select_credit_card(form, cardid)
+        # we need to reload so that we get the credit card form:
+        br.submit()
+
+        br.form = form = self._get_transaction_selection_form()
         self._select_all_transactions_from(form, from_date, to_date)
 
         # add missing $event control
