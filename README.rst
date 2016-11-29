@@ -19,10 +19,10 @@ the QIF format, which can be imported by several financial tools.
 
 Requirements
 ------------
-You need Python 2.7.x, BeautifulSoup and mechanize. On current Ubuntu,
+You need Python >=2.7.x and mechanize. On current Ubuntu,
 this should suffice:
 
-    apt-get install python-bs4 python-mechanize
+    apt-get install python-mechanize
 
 Usage
 -----

@@ -27,27 +27,10 @@ import logging
 import mechanize
 from mechanize._response import closeable_response, response_seek_wrapper
 from StringIO import StringIO
-import bs4
 
 DEBUG = False
 
 logger = logging.getLogger(__name__)
-
-def get_bs(data):
-    """
-    get_bs returns a new BeautifulSoup instance with the best
-    available parser. We have our own creation logic in order to avoid
-    unnecessary warnings or creating new dependencies.
-    """
-    for parser in ("lxml", "html.parser", None):
-        try:
-            bs = bs4.BeautifulSoup(data, parser)
-            logger.debug("choosing beatifulsoup parser %s", parser)
-            return bs
-        except bs4.FeatureNotFound:
-            continue
-    logger.error("unable to create a working beautifulsoup instance")
-
 
 class DKBBrowser(mechanize.Browser):
     """
