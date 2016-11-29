@@ -25,37 +25,16 @@ import csv
 import sys
 import logging
 import mechanize
-from mechanize._response import closeable_response, response_seek_wrapper
-from StringIO import StringIO
 
 DEBUG = False
 
 logger = logging.getLogger(__name__)
 
-class DKBBrowser(mechanize.Browser):
-    """
-    DKBBrowser is a mechanize.Browser which automatically fixes an HTML
-    coding problem in the dkb.de non-js website.
-    Sadly, this code must access non-public interfaces of mechanize.
-    Let's hope, this code is only temporarily necessary...
-    """
-    def open(self, *args, **kwargs):
-        response = mechanize.Browser.open(self, *args, **kwargs)
-        if not response or not response.get_data():
-            return response
-        html = response.get_data().replace("<![endif]-->",
-            "<!--[endif]-->")
-        patched_resp = closeable_response(StringIO(html), response._headers,
-            response._url, response.code, response.msg)
-        patched_resp = response_seek_wrapper(patched_resp)
-        self.set_response(patched_resp)
-        return patched_resp
-
 class DkbScraper(object):
     BASEURL = "https://banking.dkb.de/dkb/-"
 
     def __init__(self):
-        self.br = DKBBrowser()
+        self.br = mechanize.Browser()
 
     def login(self, userid, pin):
         """
