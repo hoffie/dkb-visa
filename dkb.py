@@ -62,6 +62,7 @@ class DkbScraper(object):
         br.set_all_readonly(False)
         br.form["j_username"] = userid
         br.form["j_password"] = pin
+        br.form["jsEnabled"] = "false"
         br.form["browserName"] = "Firefox"
         br.form["browserVersion"] = "40"
         br.form["screenWidth"] = "1000"
