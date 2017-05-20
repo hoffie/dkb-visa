@@ -117,13 +117,13 @@ class DkbScraper(object):
         all_transactions_item = None
         for item in radio_ctrl.items:
             for label in item.get_labels():
-                if re.search('Alle Ums.*tze.*', label.text, re.I):
+                if re.search('vom', label.text, re.I):
                     all_transactions_item = item
                     break
 
         if not all_transactions_item:
             raise RuntimeError(
-                "Unable to find 'Alle Umsätze vom' radio box")
+                "Unable to find 'vom' radio box")
 
         form[radio_ctrl.name] = [all_transactions_item.name]
 
