@@ -110,32 +110,21 @@ class DkbScraper(object):
         @param str to_date dd.mm.YYYY
         """
         try:
-            radio_ctrl = form.find_control("searchPeriod")
+            radio_ctrl = form.find_control("filterType")
         except Exception:
             raise RuntimeError("Unable to find search period radio box")
 
-        all_transactions_item = None
-        for item in radio_ctrl.items:
-            for label in item.get_labels():
-                if re.search('vom', label.text, re.I):
-                    all_transactions_item = item
-                    break
-
-        if not all_transactions_item:
-            raise RuntimeError(
-                "Unable to find 'vom' radio box")
-
-        form[radio_ctrl.name] = [all_transactions_item.name]
+        form[radio_ctrl.name] = [u'DATE_RANGE']
 
         try:
-            from_item = form.find_control(name="postingDate")
+            from_item = form.find_control(label="vom")
         except Exception:
-            raise RuntimeError("Unable to find 'ab' date field")
+            raise RuntimeError("Unable to find 'vom' date field")
 
         from_item.value = from_date
 
         try:
-            to_item = form.find_control(name="toPostingDate")
+            to_item = form.find_control(label="bis")
         except Exception:
             raise RuntimeError("Unable to find 'to' date field")
 
