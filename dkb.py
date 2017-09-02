@@ -139,7 +139,7 @@ class DkbScraper(object):
         @param str cardid: last 4 digits of the relevant card number
         """
         try:
-            cc_list = form.find_control(name="slAllAccounts")
+            cc_list = form.find_control(name="slAllAccounts", type='select')
         except Exception:
             raise RuntimeError("Unable to find credit card selection form")
 
@@ -148,7 +148,7 @@ class DkbScraper(object):
             for label in item.get_labels():
                 pattern = r'\b\S{12}(?<=%s)\b' % re.escape(cardid)
                 if re.search(pattern, label.text, re.I):
-                    form[cc_list.name] = [item.name]
+                    cc_list.value = [item.name]
                     return
 
         raise RuntimeError("Unable to find the right credit card")
