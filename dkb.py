@@ -91,7 +91,7 @@ class DkbScraper(object):
         """
         for form in self.br.forms():
             try:
-                form.find_control(name="slAllAccounts")
+                form.find_control(name="slAllAccounts", type='select')
                 return form
             except Exception:
                 continue
