@@ -26,8 +26,6 @@ import sys
 import logging
 import mechanize
 
-DEBUG = False
-
 logger = logging.getLogger(__name__)
 
 class DkbScraper(object):
@@ -354,11 +352,6 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
     from datetime import date
 
-    level = logging.INFO
-    if DEBUG:
-        level = logging.DEBUG
-    logging.basicConfig(level=level, format='%(message)s')
-
     cli = ArgumentParser()
     cli.add_argument("--userid",
         help="Your user id (same as used for login)")
@@ -375,12 +368,18 @@ if __name__ == '__main__':
         default=date.today().strftime('%d.%m.%Y'))
     cli.add_argument("--raw", action="store_true",
         help="Store the raw CSV file instead of QIF")
+    cli.add_argument("--debug", action="store_true")
 
     args = cli.parse_args()
     if not args.userid:
         cli.error("Please specify a valid user id")
     if not args.cardid:
         cli.error("Please specify a valid card id")
+
+    level = logging.INFO
+    if args.debug:
+        level = logging.DEBUG
+    logging.basicConfig(level=level, format='%(message)s')
 
     def is_valid_date(date):
         return date and bool(re.match('^\d{1,2}\.\d{1,2}\.\d{2,5}\Z', date))
@@ -403,7 +402,7 @@ if __name__ == '__main__':
 
     fetcher = DkbScraper()
 
-    if DEBUG:
+    if args.debug:
         logger = logging.getLogger("mechanize")
         logger.addHandler(logging.StreamHandler(sys.stdout))
         logger.setLevel(logging.INFO)
