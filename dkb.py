@@ -263,6 +263,13 @@ class DkbScraper(object):
         self.br.follow_link(url_regex='csv')
         return self.br.response().read()
 
+    def logout(self):
+        """
+        Properly ends the session.
+        """
+        self.br.open(self.BASEURL + "?$javascript=disabled")
+        self.br.follow_link(text='Abmelden')
+
 
 class DkbConverter(object):
     """
@@ -485,6 +492,7 @@ if __name__ == '__main__':
     fetcher.credit_card_transactions_overview()
     fetcher.select_transactions(args.cardid, from_date, args.to_date)
     csv_text = fetcher.get_transaction_csv()
+    fetcher.logout()
 
     if args.raw:
         if args.output == '-':
@@ -523,3 +531,4 @@ class TestDkb(unittest.TestCase):
         f.credit_card_transactions_overview()
         f.select_transactions("", "01.01.2013", "01.09.2013")
         print(f.get_transaction_csv())
+        f.logout()
