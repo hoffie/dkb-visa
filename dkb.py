@@ -21,18 +21,89 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import re
+import os
 import csv
 import sys
+import pickle
 import logging
 import mechanize
+
+class RecordingBrowser(mechanize.Browser):
+    _recording_path = None
+    _recording_enabled = False
+    _playback_enabled = False
+    _intercept_count = 0
+
+    def enable_recording(self, path):
+        self._recording_path = path
+        self._recording_enabled = True
+
+    def enable_playback(self, path):
+        self._recording_path = path
+        self._playback_enabled = True
+
+    def open(self, *args, **kwargs):
+        return self._intercept_call('open', *args, **kwargs)
+
+    def _intercept_call(self, method, *args, **kwargs):
+
+        if self._playback_enabled:
+            self._intercept_count += 1
+            return self._read_recording()
+
+        func = getattr(mechanize.Browser, method)
+        ret = func(self, *args, **kwargs)
+        if self._recording_enabled:
+            self._do_record()
+        return ret
+
+    def _do_record(self):
+        """
+        Writes the current HTML to disk if dumping is enabled.
+        Useful for offline testing.
+        """
+        data = {}
+        resp = self.response()
+        if not resp:
+            return
+        data['data'] = resp.get_data()
+        data['code'] = resp.code
+        data['msg'] = resp.msg
+        data['headers'] = resp.info().items()
+        data['url'] = resp.geturl()
+
+        self._intercept_count += 1
+        dump_path = '%s/%d.json' % (self._recording_path, self._intercept_count)
+        with open(dump_path, 'wb') as f:
+            pickle.dump(data, f)
+
+    def _read_recording(self):
+        dump_path = '%s/%d.json' % (self._recording_path, self._intercept_count)
+        if not os.path.exists(dump_path):
+            return
+            self._intercept_count += 1
+            dump_path = '%s/%d.json' % (self._recording_path, self._intercept_count)
+        with open(dump_path, 'rb') as f:
+            data = pickle.load(f)
+            if not data:
+                self.set_response(None)
+                return
+            resp = mechanize.make_response(**data)
+            return self.set_response(resp)
+
 
 logger = logging.getLogger(__name__)
 
 class DkbScraper(object):
     BASEURL = "https://www.dkb.de/-"
 
-    def __init__(self):
-        self.br = mechanize.Browser()
+    def __init__(self, record_html=False, playback_html=False):
+        self.br = RecordingBrowser()
+        dump_path = os.path.join(os.path.dirname(__file__), 'dumps')
+        if record_html:
+            self.br.enable_recording(dump_path)
+        if playback_html:
+            self.br.enable_playback(dump_path)
 
     def login(self, userid, pin):
         """
@@ -400,7 +471,7 @@ if __name__ == '__main__':
     else:
         pin = sys.stdin.read().strip()
 
-    fetcher = DkbScraper()
+    fetcher = DkbScraper(record_html=args.debug)
 
     if args.debug:
         logger = logging.getLogger("mechanize")
@@ -435,22 +506,12 @@ class TestDkb(unittest.TestCase):
     def test_csv(self):
         text = open("tests/example.csv", "rb").read()
         c = DkbConverter(text)
-        c.export_to("/tmp/output.qif")
+        c.export_to("tests/example.qif")
 
     def test_fetcher(self):
-        # sorry, this test relies on private data, but I'll point out
-        # how to create it:
-        # - download the login form to loginform.html
-        # - download the page after login, modify loginform.html to
-        #   POST to this file instead of the original URL
-        # - do the same for
-        #     * the 'Kreditkartenumsätze' page,
-        #     * the page after selecting a card and a time frame
-        # - set up some lightweight web server (such as lighttpd) to
-        #   serve these files and change BASEURL below accordingly
-        # - this is also helpful if the web site changes and you have
-        #   to adapt this code
-        f = DkbScraper()
+        # Run with --debug to create the necessary data for the tests.
+        # This will record your actual dkb.de responses for local testing.
+        f = DkbScraper(playback_html=True)
         f.BASEURL = "http://localhost:8000/loginform.html"
         f.br.set_debug_http(True)
         #f.br.set_debug_responses(True)
@@ -460,5 +521,5 @@ class TestDkb(unittest.TestCase):
         logger.setLevel(logging.INFO)
         f.login("test", "1234")
         f.credit_card_transactions_overview()
-        f.select_transactions("5678", "01.01.2013", "01.09.2013")
+        f.select_transactions("", "01.01.2013", "01.09.2013")
         print(f.get_transaction_csv())
