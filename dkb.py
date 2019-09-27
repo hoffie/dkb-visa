@@ -138,7 +138,64 @@ class DkbScraper(object):
         br.form["screenHeight"] = "800"
         br.form["osName"] = "Windows"
         br.submit()
-        br.open(self.BASEURL + "?$javascript=disabled")
+        self.confirm_login()
+
+    def confirm_login(self):
+        br = self.br
+        br.form = list(br.forms())[2]
+        #FIXME we should check which page we are on...
+        try:
+            form = self._get_tan_input_form()
+        except RuntimeError:
+            # if we don't find the tan field, we're probably at the empty form
+            br.submit()
+            form = self._get_tan_input_form()
+
+        br.form = form
+        startcode = re.search("Startcode [0-9]{8}", br.response().get_data())
+        if startcode: #using chipTAN
+            print(startcode.group())
+        #else: using dkbapp
+        # TODO check for Startcode
+        br.form["tan"] = self.ask_for_tan()
+        br.submit()
+
+        try:
+            # if we find the tan field after submitting, the TAN was wrong
+            self._get_tan_input_form()
+        except RuntimeError:
+            br.open(self.BASEURL + "?$javascript=disabled")
+            return
+        raise RuntimeError("TAN seems to be wrong")
+
+
+    def ask_for_tan(self):
+        tan = ""
+        import os
+        if os.isatty(0):
+            while not tan.strip():
+                tan = raw_input('TAN: ')
+        else:
+            tan = sys.stdin.read().strip()
+        return tan
+
+
+    def _get_tan_input_form(self):
+        """
+        Internal.
+
+        Returns the tan input form object (mechanize)
+        """
+        for form in self.br.forms():
+            try:
+                form.find_control(name="tan")
+                return form
+            except Exception:
+                continue
+
+        raise RuntimeError("Unable to find tan input form")
+
+
 
     def credit_card_transactions_overview(self):
         """
