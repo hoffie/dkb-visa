@@ -137,10 +137,28 @@ class DkbScraper(object):
         br.form["screenWidth"] = "1000"
         br.form["screenHeight"] = "800"
         br.form["osName"] = "Windows"
-        br.submit()
-        self.confirm_login()
+        response = br.submit()
+        if ("Wechseln Sie in die <strong>DKB-Banking-App</strong> und best" in response.read() ):
+            logger.debug("DKB-Banking-App detected")
+            self.confirm_app_login()
+        else:
+            logger.debug("Attempting TAN login")
+            self.confirm_tan_login()
 
-    def confirm_login(self):
+    def confirm_app_login(self):
+        br = self.br
+        # The following loop executes the verification sequence for about 2 minutes.
+        for x in range(30):
+            response = br.open('https://www.dkb.de/DkbTransactionBanking/content/LoginWithBoundDevice/LoginWithBoundDeviceProcess/confirmLogin.xhtml?$event=pollingVerification')
+            time.sleep(2)
+            if not ("WAITING" in response.read()):
+                break
+        br.open(self.BASEURL + "?$javascript=disabled")
+        br.select_form(name="confirmForm")
+        br.submit()
+        print("Device Authentication failed")        
+
+    def confirm_tan_login(self):
         br = self.br
         br.form = list(br.forms())[2]
         #FIXME we should check which page we are on...
