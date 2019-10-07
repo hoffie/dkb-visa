@@ -156,7 +156,6 @@ class DkbScraper(object):
         br.open(self.BASEURL + "?$javascript=disabled")
         br.select_form(name="confirmForm")
         br.submit()
-        print("Device Authentication failed")        
 
     def confirm_tan_login(self):
         br = self.br
