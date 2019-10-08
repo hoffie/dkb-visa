@@ -27,6 +27,7 @@ import sys
 import pickle
 import logging
 import mechanize
+import time
 
 class RecordingBrowser(mechanize.Browser):
     _recording_path = None
