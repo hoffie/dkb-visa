@@ -489,15 +489,21 @@ class DkbConverter(object):
                 yield 'L%s' % category
             yield '^'
 
-    def export_to(self, path):
+    def export_to(self, path, append=False):
         """
         Writes the QIF version of the already stored csv text to the
         given path.
 
         @param str path
+        @param bool append: Default overwrites file. True appends to existing files.
         """
+        
+        write_flags = "wb"
+        if append:
+            write_flags = "ab"
+        
         logger.info("Exporting qif to %s", path)
-        with open(path, "wb") as f:
+        with open(path, write_flags) as f:
             for line in self.get_qif_lines():
                 f.write(line + "\n")
 
