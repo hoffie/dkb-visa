@@ -516,11 +516,11 @@ if __name__ == '__main__':
     cli.add_argument("--userid",
         help="Your user id (same as used for login)")
     cli.add_argument("--cardid",
-        help="Last 4 digits of your card number")
+        help='Last 4 digits of your card number, multiple cards separated by ","')
     cli.add_argument("--output", "-o",
         help="Output path (QIF)")
     cli.add_argument("--qif-account",
-        help="Default QIF account name (e.g. Aktiva:VISA)")
+        help='Default QIF account name (e.g. Aktiva:VISA), multiple accounts separated by "," (one per card)')
     cli.add_argument("--from-date",
         help="Export transactions as of... (DD.MM.YYYY)")
     cli.add_argument("--to-date",
@@ -572,19 +572,28 @@ if __name__ == '__main__':
 
     fetcher.login(args.userid, pin)
     fetcher.credit_card_transactions_overview()
-    fetcher.select_transactions(args.cardid, from_date, args.to_date)
-    csv_text = fetcher.get_transaction_csv()
+    cardids = args.cardid.split(",")
+    qif_accounts = args.qif_account.split(",")
+
+    for i in range( len(cardids) ):
+        fetcher.select_transactions(cardids[i], from_date, args.to_date)
+        csv_text = fetcher.get_transaction_csv()
+        if args.raw:
+            if args.output == '-':
+                f = sys.stdout
+            else:
+                f = open(args.output, 'w')
+            f.write(csv_text)
+        else:
+            dkb2qif = DkbConverter(csv_text, cc_name=qif_accounts[i])
+            if i == 0:
+                dkb2qif.export_to(args.output)
+            else:
+                dkb2qif.export_to(args.output,true)
+        fetcher.br.back()
     fetcher.logout()
 
-    if args.raw:
-        if args.output == '-':
-            f = sys.stdout
-        else:
-            f = open(args.output, 'w')
-        f.write(csv_text)
-    else:
-        dkb2qif = DkbConverter(csv_text, cc_name=args.qif_account)
-        dkb2qif.export_to(args.output)
+
 
 # Testing
 # =======
