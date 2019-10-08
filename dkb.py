@@ -149,9 +149,11 @@ class DkbScraper(object):
         br = self.br
         # The following loop executes the verification sequence for about 2 minutes.
         for x in range(30):
-            response = br.open('https://www.dkb.de/DkbTransactionBanking/content/LoginWithBoundDevice/LoginWithBoundDeviceProcess/confirmLogin.xhtml?$event=pollingVerification')
             time.sleep(2)
-            if not ("WAITING" in response.read()):
+            if x >= 29:
+                print("Authentication timed out")
+                quit()
+            if not ("WAITING" in br.open('https://www.dkb.de/DkbTransactionBanking/content/LoginWithBoundDevice/LoginWithBoundDeviceProcess/confirmLogin.xhtml?$event=pollingVerification').read()):
                 break
         br.open(self.BASEURL + "?$javascript=disabled")
         br.select_form(name="confirmForm")
