@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # DKB Credit card transaction QIF exporter
 # Copyright (C) 2013 Christian Hoffmann <mail@hoffmann-christian.info>
@@ -44,7 +44,11 @@ class RecordingBrowser(mechanize.Browser):
         self._playback_enabled = True
 
     def open(self, *args, **kwargs):
-        return self._intercept_call('open', *args, **kwargs)
+        try:
+            return self._intercept_call('open', *args, **kwargs)
+        except Exception as e:
+            print(e)
+            raise e
 
     def _intercept_call(self, method, *args, **kwargs):
 
@@ -115,6 +119,7 @@ class DkbScraper(object):
         """
         logger.info("Starting login as user %s...", userid)
         br = self.br
+        br.addheaders = [('User-agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.2.8) Gecko/20100722 Firefox/3.6.8 GTB7.1 (.NET CLR 3.5.30729)')]
 
         # we are not a spider, so let's ignore robots.txt...
         br.set_handle_robots(False)
@@ -139,7 +144,7 @@ class DkbScraper(object):
         br.form["screenHeight"] = "800"
         br.form["osName"] = "Windows"
         response = br.submit()
-        if ("Wechseln Sie in die <strong>DKB-Banking-App</strong> und best" in response.read() ):
+        if ("Wechseln Sie in die <strong>DKB-Banking-App</strong> und best" in response.read().decode('utf-8') ):
             logger.debug("DKB-Banking-App detected")
             self.confirm_app_login()
         else:
@@ -154,7 +159,7 @@ class DkbScraper(object):
             if x >= 29:
                 print("Authentication timed out")
                 quit()
-            if not ("WAITING" in br.open('https://www.dkb.de/DkbTransactionBanking/content/LoginWithBoundDevice/LoginWithBoundDeviceProcess/confirmLogin.xhtml?$event=pollingVerification').read()):
+            if not ("WAITING" in br.open('https://www.dkb.de/DkbTransactionBanking/content/LoginWithBoundDevice/LoginWithBoundDeviceProcess/confirmLogin.xhtml?$event=pollingVerification').read().decode('utf-8')):
                 break
         br.open(self.BASEURL + "?$javascript=disabled")
         br.select_form(name="confirmForm")
@@ -391,9 +396,7 @@ class DkbConverter(object):
             Category in your financial software
             (an account such as Aktiva:Visa)
         """
-        self.csv_text = (csv_text
-            .decode(self.INPUT_CHARSET)
-            .encode(self.OUTPUT_CHARSET))
+        self.csv_text = csv_text.decode(self.INPUT_CHARSET)
         self.DEFAULT_CATEGORY = default_category
         self.CREDIT_CARD_NAME = cc_name or 'VISA'
 
@@ -473,8 +476,8 @@ class DkbConverter(object):
         yield '!Type:Bank'
         lines = self.csv_text.split('\n')
         reader = csv.reader(lines, delimiter=";")
-        for x in xrange(self.SKIP_LINES):
-            reader.next()
+        for x in range(self.SKIP_LINES):
+            reader.__next__()
         for line in reader:
             if len(line) < self.REQUIRED_FIELDS:
                 continue
@@ -500,7 +503,7 @@ class DkbConverter(object):
         logger.info("Exporting qif to %s", path)
         with open(path, "wb") as f:
             for line in self.get_qif_lines():
-                f.write(line + "\n")
+                f.write((line + "\n").encode(self.OUTPUT_CHARSET))
 
 if __name__ == '__main__':
     from getpass import getpass
