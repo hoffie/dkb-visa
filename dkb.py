@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 # DKB Credit card transaction QIF exporter
 # Copyright (C) 2013 Christian Hoffmann <mail@hoffmann-christian.info>
@@ -343,7 +343,9 @@ class DkbScraper(object):
         """
         logger.info("Requesting CSV data...")
         self.br.follow_link(url_regex='csv')
-        return self.br.response().read()
+        csv = self.br.response().read()
+        self.br.back()
+        return csv
 
     def logout(self):
         """
@@ -510,20 +512,25 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
     from datetime import date
 
-    cli = ArgumentParser()
+    cli = ArgumentParser(description="Download VISA card transactions from DKB account. Specify exactly one userid and same number of cardid, output, qif-account, from-date and to-date arguments (qif-account and to-date are optional).")
     cli.add_argument("--userid",
         help="Your user id (same as used for login)")
     cli.add_argument("--cardid",
-        help="Last 4 digits of your card number")
+        action='append',
+        help="Last 4 digits of your card number (*)")
     cli.add_argument("--output", "-o",
+        action='append',
         help="Output path (QIF)")
     cli.add_argument("--qif-account",
-        help="Default QIF account name (e.g. Aktiva:VISA)")
+        action='append',
+        help="Default QIF account name (e.g. Aktiva:VISA) (*)")
     cli.add_argument("--from-date",
-        help="Export transactions as of... (DD.MM.YYYY)")
+        action='append',
+        help="Export transactions as of... (DD.MM.YYYY) (*)")
     cli.add_argument("--to-date",
-        help="Export transactions until... (DD.MM.YYYY)",
-        default=date.today().strftime('%d.%m.%Y'))
+        action='append',
+        help="Export transactions until... (DD.MM.YYYY) (*)",
+        default=[date.today().strftime('%d.%m.%Y')])
     cli.add_argument("--raw", action="store_true",
         help="Store the raw CSV file instead of QIF")
     cli.add_argument("--debug", action="store_true")
@@ -531,8 +538,8 @@ if __name__ == '__main__':
     args = cli.parse_args()
     if not args.userid:
         cli.error("Please specify a valid user id")
-    if not args.cardid:
-        cli.error("Please specify a valid card id")
+    if len(args.cardid) == 0:
+        cli.error("Please specify at least one valid card id")
 
     level = logging.INFO
     if args.debug:
@@ -542,13 +549,22 @@ if __name__ == '__main__':
     def is_valid_date(date):
         return date and bool(re.match('^\d{1,2}\.\d{1,2}\.\d{2,5}\Z', date))
 
+    def is_valid_dates(dates):
+        return not False in [is_valid_date(date) for date in dates]
+
     from_date = args.from_date
-    while not is_valid_date(from_date):
-        from_date = raw_input("Start time: ")
-    if not is_valid_date(args.to_date):
-        cli.error("Please specify a valid end time")
-    if not args.output:
-        cli.error("Please specify a valid output path")
+    if len(args.cardid) == 1:
+        while not is_valid_date(from_date[0]):
+            from_date[0] = raw_input("Start time: ")
+    else:
+        if len(args.from_date) != len(args.cardid) or not is_valid_dates(args.from_date):
+            cli.error("Please specify exactly one valid start time for each card id")
+    if len(args.to_date) not in [1, len(args.cardid)] or not is_valid_dates(args.to_date):
+        cli.error("Please specify exactly one valid end time for each card id or none")
+    if len(args.output) != len(args.cardid):
+        cli.error("Please specify exactly one valid output path for each card id")
+    if len(args.qif_account) not in [0, len(args.cardid)]:
+        cli.error("Please specify exactly one valid qif-account for each card id or none")
 
     pin = ""
     import os
@@ -570,19 +586,20 @@ if __name__ == '__main__':
 
     fetcher.login(args.userid, pin)
     fetcher.credit_card_transactions_overview()
-    fetcher.select_transactions(args.cardid, from_date, args.to_date)
-    csv_text = fetcher.get_transaction_csv()
-    fetcher.logout()
+    for idx in range(len(args.cardid)):
+        fetcher.select_transactions(args.cardid[idx], from_date[idx], args.to_date[idx] if idx  < len(args.to_date) else args.to_date[0])
+        csv_text = fetcher.get_transaction_csv()
 
-    if args.raw:
-        if args.output == '-':
-            f = sys.stdout
+        if args.raw:
+            if args.output == '-':
+                f = sys.stdout
+            else:
+                f = open(args.output, 'w')
+            f.write(csv_text)
         else:
-            f = open(args.output, 'w')
-        f.write(csv_text)
-    else:
-        dkb2qif = DkbConverter(csv_text, cc_name=args.qif_account)
-        dkb2qif.export_to(args.output)
+            dkb2qif = DkbConverter(csv_text, cc_name=args.qif_account[idx] if idx < len(args.qif_account) else None)
+            dkb2qif.export_to(args.output[idx])
+    fetcher.logout()
 
 # Testing
 # =======
