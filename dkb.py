@@ -564,7 +564,7 @@ if __name__ == '__main__':
         cli.error("Please specify exactly one valid end time for each card id or none")
     if len(args.output) != len(args.cardid):
         cli.error("Please specify exactly one valid output path for each card id")
-    if len(args.qif_account) not in [0, len(args.cardid)]:
+    if args.qif_account and len(args.qif_account) not in [0, len(args.cardid)]:
         cli.error("Please specify exactly one valid qif-account for each card id or none")
 
     pin = ""
@@ -598,7 +598,10 @@ if __name__ == '__main__':
                 f = open(args.output, 'w')
             f.write(csv_text)
         else:
-            dkb2qif = DkbConverter(csv_text, cc_name=args.qif_account[idx] if idx < len(args.qif_account) else None)
+            cc_name = None
+            if args.qif_account:
+                cc_name = args.qif_account[idx]
+            dkb2qif = DkbConverter(csv_text, cc_name=cc_name)
             dkb2qif.export_to(args.output[idx])
     fetcher.logout()
 
