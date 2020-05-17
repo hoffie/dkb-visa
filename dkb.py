@@ -28,6 +28,8 @@ import pickle
 import logging
 import mechanize
 import time
+import unittest
+
 
 class RecordingBrowser(mechanize.Browser):
     _recording_path = None
@@ -98,6 +100,7 @@ class RecordingBrowser(mechanize.Browser):
 
 
 logger = logging.getLogger(__name__)
+
 
 class DkbScraper(object):
     BASEURL = "https://www.dkb.de/-"
@@ -179,9 +182,9 @@ class DkbScraper(object):
 
         br.form = form
         startcode = re.search("Startcode [0-9]{8}", br.response().get_data())
-        if startcode: #using chipTAN
+        if startcode: # using chipTAN
             print(startcode.group())
-        #else: using dkbapp
+        # else: using dkbapp
         # TODO check for Startcode
         br.form["tan"] = self.ask_for_tan()
         br.submit()
@@ -194,17 +197,15 @@ class DkbScraper(object):
             return
         raise RuntimeError("TAN seems to be wrong")
 
-
     def ask_for_tan(self):
         tan = ""
         import os
         if os.isatty(0):
             while not tan.strip():
-                tan = raw_input('TAN: ')
+                tan = input('TAN: ')
         else:
             tan = sys.stdin.read().strip()
         return tan
-
 
     def _get_tan_input_form(self):
         """
@@ -220,8 +221,6 @@ class DkbScraper(object):
                 continue
 
         raise RuntimeError("Unable to find tan input form")
-
-
 
     def credit_card_transactions_overview(self):
         """
@@ -307,7 +306,6 @@ class DkbScraper(object):
 
         raise RuntimeError("Unable to find the right credit card")
 
-
     def select_transactions(self, cardid, from_date, to_date):
         """
         Changes the current view to show all transactions between
@@ -320,7 +318,7 @@ class DkbScraper(object):
         """
         br = self.br
         logger.info("Selecting transactions in time frame %s - %s...",
-            from_date, to_date)
+                    from_date, to_date)
 
         br.form = form = self._get_transaction_selection_form()
         self._select_credit_card(form, cardid)
@@ -429,9 +427,9 @@ class DkbConverter(object):
         @return str
         """
         return (line[self.COL_VALUE]
-            .strip()
-            .replace('.', '') # 1.000 -> 1000
-            .replace(',', '.')) # 0,83 -> 0.83
+                .strip()
+                .replace('.', '')  # 1.000 -> 1000
+                .replace(',', '.'))  # 0,83 -> 0.83
 
     def format_description(self, line):
         """
@@ -508,6 +506,7 @@ class DkbConverter(object):
             for line in self.get_qif_lines():
                 f.write((line + "\n").encode(self.OUTPUT_CHARSET))
 
+
 if __name__ == '__main__':
     from getpass import getpass
     from argparse import ArgumentParser
@@ -515,25 +514,25 @@ if __name__ == '__main__':
 
     cli = ArgumentParser(description="Download VISA card transactions from DKB account. Specify exactly one userid and same number of cardid, output, qif-account, from-date and to-date arguments (qif-account and to-date are optional).")
     cli.add_argument("--userid",
-        help="Your user id (same as used for login)")
+                     help="Your user id (same as used for login)")
     cli.add_argument("--cardid",
-        action='append',
-        help="Last 4 digits of your card number (*)")
+                     action='append',
+                     help="Last 4 digits of your card number (*)")
     cli.add_argument("--output", "-o",
-        action='append',
-        help="Output path (QIF)")
+                     action='append',
+                     help="Output path (QIF)")
     cli.add_argument("--qif-account",
-        action='append',
-        help="Default QIF account name (e.g. Aktiva:VISA) (*)")
+                     action='append',
+                     help="Default QIF account name (e.g. Aktiva:VISA) (*)")
     cli.add_argument("--from-date",
-        action='append',
-        help="Export transactions as of... (DD.MM.YYYY) (*)")
+                     action='append',
+                     help="Export transactions as of... (DD.MM.YYYY) (*)")
     cli.add_argument("--to-date",
-        action='append',
-        help="Export transactions until... (DD.MM.YYYY) (*)",
-        default=[date.today().strftime('%d.%m.%Y')])
+                     action='append',
+                     help="Export transactions until... (DD.MM.YYYY) (*)",
+                     default=[date.today().strftime('%d.%m.%Y')])
     cli.add_argument("--raw", action="store_true",
-        help="Store the raw CSV file instead of QIF")
+                     help="Store the raw CSV file instead of QIF")
     cli.add_argument("--debug", action="store_true")
 
     args = cli.parse_args()
@@ -551,12 +550,12 @@ if __name__ == '__main__':
         return date and bool(re.match('^\d{1,2}\.\d{1,2}\.\d{2,5}\Z', date))
 
     def is_valid_dates(dates):
-        return not False in [is_valid_date(date) for date in dates]
+        return False not in [is_valid_date(date) for date in dates]
 
     from_date = args.from_date
     if len(args.cardid) == 1:
         while not is_valid_date(from_date[0]):
-            from_date[0] = raw_input("Start time: ")
+            from_date[0] = input("Start time: ")
     else:
         if len(args.from_date) != len(args.cardid) or not is_valid_dates(args.from_date):
             cli.error("Please specify exactly one valid start time for each card id")
@@ -568,7 +567,6 @@ if __name__ == '__main__':
         cli.error("Please specify exactly one valid qif-account for each card id or none")
 
     pin = ""
-    import os
     if os.isatty(0):
         while not pin.strip():
             pin = getpass('PIN: ')
@@ -588,7 +586,7 @@ if __name__ == '__main__':
     fetcher.login(args.userid, pin)
     fetcher.credit_card_transactions_overview()
     for idx in range(len(args.cardid)):
-        fetcher.select_transactions(args.cardid[idx], from_date[idx], args.to_date[idx] if idx  < len(args.to_date) else args.to_date[0])
+        fetcher.select_transactions(args.cardid[idx], from_date[idx], args.to_date[idx] if idx < len(args.to_date) else args.to_date[0])
         csv_text = fetcher.get_transaction_csv()
 
         if args.raw:
@@ -610,7 +608,7 @@ if __name__ == '__main__':
 # python -m unittest dkb
 # test_fetcher will fail unless you manually create test data, see below
 
-import unittest
+
 class TestDkb(unittest.TestCase):
     def test_csv(self):
         text = open("tests/example.csv", "rb").read()
