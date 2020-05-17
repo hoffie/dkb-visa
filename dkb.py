@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 # DKB Credit card transaction QIF exporter
 # Copyright (C) 2013 Christian Hoffmann <mail@hoffmann-christian.info>
@@ -44,7 +44,11 @@ class RecordingBrowser(mechanize.Browser):
         self._playback_enabled = True
 
     def open(self, *args, **kwargs):
-        return self._intercept_call('open', *args, **kwargs)
+        try:
+            return self._intercept_call('open', *args, **kwargs)
+        except Exception as e:
+            print(e)
+            raise e
 
     def _intercept_call(self, method, *args, **kwargs):
 
@@ -115,6 +119,7 @@ class DkbScraper(object):
         """
         logger.info("Starting login as user %s...", userid)
         br = self.br
+        br.addheaders = [('User-agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.2.8) Gecko/20100722 Firefox/3.6.8 GTB7.1 (.NET CLR 3.5.30729)')]
 
         # we are not a spider, so let's ignore robots.txt...
         br.set_handle_robots(False)
@@ -140,7 +145,7 @@ class DkbScraper(object):
         br.form["screenHeight"] = "800"
         br.form["osName"] = "UNIX"
         response = br.submit()
-        if ("Wechseln Sie in die <strong>DKB-Banking-App</strong> und best" in response.read() ):
+        if ("Wechseln Sie in die <strong>DKB-Banking-App</strong> und best" in response.read().decode('utf-8') ):
             logger.debug("DKB-Banking-App detected")
             self.confirm_app_login()
         else:
@@ -155,7 +160,7 @@ class DkbScraper(object):
             if x >= 29:
                 print("Authentication timed out")
                 quit()
-            if not ("WAITING" in br.open('https://www.dkb.de/DkbTransactionBanking/content/LoginWithBoundDevice/LoginWithBoundDeviceProcess/confirmLogin.xhtml?$event=pollingVerification').read()):
+            if not ("WAITING" in br.open('https://www.dkb.de/DkbTransactionBanking/content/LoginWithBoundDevice/LoginWithBoundDeviceProcess/confirmLogin.xhtml?$event=pollingVerification').read().decode('utf-8')):
                 break
         br.open(self.BASEURL + "?$javascript=disabled")
         br.select_form(name="confirmForm")
@@ -339,7 +344,9 @@ class DkbScraper(object):
         """
         logger.info("Requesting CSV data...")
         self.br.follow_link(url_regex='csv')
-        return self.br.response().read()
+        csv = self.br.response().read()
+        self.br.back()
+        return csv
 
     def logout(self):
         """
@@ -392,9 +399,7 @@ class DkbConverter(object):
             Category in your financial software
             (an account such as Aktiva:Visa)
         """
-        self.csv_text = (csv_text
-            .decode(self.INPUT_CHARSET)
-            .encode(self.OUTPUT_CHARSET))
+        self.csv_text = csv_text.decode(self.INPUT_CHARSET)
         self.DEFAULT_CATEGORY = default_category
         self.CREDIT_CARD_NAME = cc_name or 'VISA'
 
@@ -474,8 +479,8 @@ class DkbConverter(object):
         yield '!Type:Bank'
         lines = self.csv_text.split('\n')
         reader = csv.reader(lines, delimiter=";")
-        for x in xrange(self.SKIP_LINES):
-            reader.next()
+        for x in range(self.SKIP_LINES):
+            reader.__next__()
         for line in reader:
             if len(line) < self.REQUIRED_FIELDS:
                 continue
@@ -501,27 +506,32 @@ class DkbConverter(object):
         logger.info("Exporting qif to %s", path)
         with open(path, "wb") as f:
             for line in self.get_qif_lines():
-                f.write(line + "\n")
+                f.write((line + "\n").encode(self.OUTPUT_CHARSET))
 
 if __name__ == '__main__':
     from getpass import getpass
     from argparse import ArgumentParser
     from datetime import date
 
-    cli = ArgumentParser()
+    cli = ArgumentParser(description="Download VISA card transactions from DKB account. Specify exactly one userid and same number of cardid, output, qif-account, from-date and to-date arguments (qif-account and to-date are optional).")
     cli.add_argument("--userid",
         help="Your user id (same as used for login)")
     cli.add_argument("--cardid",
-        help="Last 4 digits of your card number")
+        action='append',
+        help="Last 4 digits of your card number (*)")
     cli.add_argument("--output", "-o",
+        action='append',
         help="Output path (QIF)")
     cli.add_argument("--qif-account",
-        help="Default QIF account name (e.g. Aktiva:VISA)")
+        action='append',
+        help="Default QIF account name (e.g. Aktiva:VISA) (*)")
     cli.add_argument("--from-date",
-        help="Export transactions as of... (DD.MM.YYYY)")
+        action='append',
+        help="Export transactions as of... (DD.MM.YYYY) (*)")
     cli.add_argument("--to-date",
-        help="Export transactions until... (DD.MM.YYYY)",
-        default=date.today().strftime('%d.%m.%Y'))
+        action='append',
+        help="Export transactions until... (DD.MM.YYYY) (*)",
+        default=[date.today().strftime('%d.%m.%Y')])
     cli.add_argument("--raw", action="store_true",
         help="Store the raw CSV file instead of QIF")
     cli.add_argument("--debug", action="store_true")
@@ -529,8 +539,8 @@ if __name__ == '__main__':
     args = cli.parse_args()
     if not args.userid:
         cli.error("Please specify a valid user id")
-    if not args.cardid:
-        cli.error("Please specify a valid card id")
+    if len(args.cardid) == 0:
+        cli.error("Please specify at least one valid card id")
 
     level = logging.INFO
     if args.debug:
@@ -540,13 +550,22 @@ if __name__ == '__main__':
     def is_valid_date(date):
         return date and bool(re.match('^\d{1,2}\.\d{1,2}\.\d{2,5}\Z', date))
 
+    def is_valid_dates(dates):
+        return not False in [is_valid_date(date) for date in dates]
+
     from_date = args.from_date
-    while not is_valid_date(from_date):
-        from_date = raw_input("Start time: ")
-    if not is_valid_date(args.to_date):
-        cli.error("Please specify a valid end time")
-    if not args.output:
-        cli.error("Please specify a valid output path")
+    if len(args.cardid) == 1:
+        while not is_valid_date(from_date[0]):
+            from_date[0] = raw_input("Start time: ")
+    else:
+        if len(args.from_date) != len(args.cardid) or not is_valid_dates(args.from_date):
+            cli.error("Please specify exactly one valid start time for each card id")
+    if len(args.to_date) not in [1, len(args.cardid)] or not is_valid_dates(args.to_date):
+        cli.error("Please specify exactly one valid end time for each card id or none")
+    if len(args.output) != len(args.cardid):
+        cli.error("Please specify exactly one valid output path for each card id")
+    if len(args.qif_account) not in [0, len(args.cardid)]:
+        cli.error("Please specify exactly one valid qif-account for each card id or none")
 
     pin = ""
     import os
@@ -568,19 +587,20 @@ if __name__ == '__main__':
 
     fetcher.login(args.userid, pin)
     fetcher.credit_card_transactions_overview()
-    fetcher.select_transactions(args.cardid, from_date, args.to_date)
-    csv_text = fetcher.get_transaction_csv()
-    fetcher.logout()
+    for idx in range(len(args.cardid)):
+        fetcher.select_transactions(args.cardid[idx], from_date[idx], args.to_date[idx] if idx  < len(args.to_date) else args.to_date[0])
+        csv_text = fetcher.get_transaction_csv()
 
-    if args.raw:
-        if args.output == '-':
-            f = sys.stdout
+        if args.raw:
+            if args.output == '-':
+                f = sys.stdout
+            else:
+                f = open(args.output, 'w')
+            f.write(csv_text)
         else:
-            f = open(args.output, 'w')
-        f.write(csv_text)
-    else:
-        dkb2qif = DkbConverter(csv_text, cc_name=args.qif_account)
-        dkb2qif.export_to(args.output)
+            dkb2qif = DkbConverter(csv_text, cc_name=args.qif_account[idx] if idx < len(args.qif_account) else None)
+            dkb2qif.export_to(args.output[idx])
+    fetcher.logout()
 
 # Testing
 # =======
