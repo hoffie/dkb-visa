@@ -118,6 +118,7 @@ class DkbScraper(object):
 
         # we are not a spider, so let's ignore robots.txt...
         br.set_handle_robots(False)
+        br.addheaders = [('User-Agent','Mozilla/5.0 (X11; Linux x86_64; rv:76.0) Gecko/20100101 Firefox/76.0')]
 
         # Although we have to handle a meta refresh, we disable it here
         # since mechanize seems to be buggy and will be stuck in a
@@ -134,10 +135,10 @@ class DkbScraper(object):
         br.form["j_password"] = pin
         br.form["jsEnabled"] = "false"
         br.form["browserName"] = "Firefox"
-        br.form["browserVersion"] = "40"
+        br.form["browserVersion"] = "76.0"
         br.form["screenWidth"] = "1000"
         br.form["screenHeight"] = "800"
-        br.form["osName"] = "Windows"
+        br.form["osName"] = "UNIX"
         response = br.submit()
         if ("Wechseln Sie in die <strong>DKB-Banking-App</strong> und best" in response.read() ):
             logger.debug("DKB-Banking-App detected")
