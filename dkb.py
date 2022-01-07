@@ -153,6 +153,7 @@ class DkbScraper(object):
             self.confirm_tan_login()
 
     def confirm_app_login(self):
+        logger.info("DKB-Banking-App detected, waiting for in-app login confirmation...")
         br = self.br
         # The following loop executes the verification sequence for about 2 minutes.
         for x in range(30):
@@ -167,6 +168,7 @@ class DkbScraper(object):
         br.submit()
 
     def confirm_tan_login(self):
+        logger.info("Attempting TAN login")
         br = self.br
         br.form = list(br.forms())[2]
         #FIXME we should check which page we are on...
