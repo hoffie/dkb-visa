@@ -590,7 +590,7 @@ if __name__ == '__main__':
             if args.output == '-':
                 f = sys.stdout
             else:
-                f = open(args.output, 'w')
+                f = open(args.output[idx], 'wb')
             f.write(csv_text)
         else:
             cc_name = None
