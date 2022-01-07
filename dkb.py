@@ -80,16 +80,16 @@ class RecordingBrowser(mechanize.Browser):
         data['url'] = resp.geturl()
 
         self._intercept_count += 1
-        dump_path = '%s/%d.json' % (self._recording_path, self._intercept_count)
+        dump_path = '%s/%d.pickle' % (self._recording_path, self._intercept_count)
         with open(dump_path, 'wb') as f:
             pickle.dump(data, f)
 
     def _read_recording(self):
-        dump_path = '%s/%d.json' % (self._recording_path, self._intercept_count)
+        dump_path = '%s/%d.pickle' % (self._recording_path, self._intercept_count)
         if not os.path.exists(dump_path):
             return
             self._intercept_count += 1
-            dump_path = '%s/%d.json' % (self._recording_path, self._intercept_count)
+            dump_path = '%s/%d.pickle' % (self._recording_path, self._intercept_count)
         with open(dump_path, 'rb') as f:
             data = pickle.load(f)
             if not data:
