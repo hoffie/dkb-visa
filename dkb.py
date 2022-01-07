@@ -533,6 +533,8 @@ if __name__ == '__main__':
     cli.add_argument("--raw", action="store_true",
                      help="Store the raw CSV file instead of QIF")
     cli.add_argument("--debug", action="store_true")
+    cli.add_argument("--debug-dump", action="store_true")
+    cli.add_argument("--debug-mechanize", action="store_true")
 
     args = cli.parse_args()
     if not args.userid:
@@ -574,10 +576,10 @@ if __name__ == '__main__':
 
     fetcher = DkbScraper(record_html=args.debug)
 
-    if args.debug:
-        logger = logging.getLogger("mechanize")
-        logger.addHandler(logging.StreamHandler(sys.stdout))
-        logger.setLevel(logging.INFO)
+    if args.debug_mechanize:
+        mechanize_logger = logging.getLogger("mechanize")
+        mechanize_logger.addHandler(logging.StreamHandler(sys.stdout))
+        mechanize_logger.setLevel(logging.INFO)
         #fetcher.br.set_debug_http(True)
         fetcher.br.set_debug_responses(True)
         #fetcher.br.set_debug_redirects(True)
@@ -615,7 +617,7 @@ class TestDkb(unittest.TestCase):
         c.export_to("tests/example.qif")
 
     def test_fetcher(self):
-        # Run with --debug to create the necessary data for the tests.
+        # Run with --debug-dump to create the necessary data for the tests.
         # This will record your actual dkb.de responses for local testing.
         f = DkbScraper(playback_html=True)
         f.BASEURL = "http://localhost:8000/loginform.html"
