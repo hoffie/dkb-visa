@@ -120,7 +120,6 @@ class DkbScraper(object):
         """
         logger.info("Starting login as user %s...", userid)
         br = self.br
-        br.addheaders = [('User-agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.2.8) Gecko/20100722 Firefox/3.6.8 GTB7.1 (.NET CLR 3.5.30729)')]
 
         # we are not a spider, so let's ignore robots.txt...
         br.set_handle_robots(False)
