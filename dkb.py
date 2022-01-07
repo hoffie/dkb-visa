@@ -53,7 +53,6 @@ class RecordingBrowser(mechanize.Browser):
             raise e
 
     def _intercept_call(self, method, *args, **kwargs):
-
         if self._playback_enabled:
             self._intercept_count += 1
             return self._read_recording()
@@ -87,16 +86,15 @@ class RecordingBrowser(mechanize.Browser):
     def _read_recording(self):
         dump_path = '%s/%d.pickle' % (self._recording_path, self._intercept_count)
         if not os.path.exists(dump_path):
-            return
             self._intercept_count += 1
             dump_path = '%s/%d.pickle' % (self._recording_path, self._intercept_count)
         with open(dump_path, 'rb') as f:
             data = pickle.load(f)
             if not data:
-                self.set_response(None)
-                return
+                return self.set_response(None)
             resp = mechanize.make_response(**data)
-            return self.set_response(resp)
+            self.set_response(resp)
+            return resp
 
 
 logger = logging.getLogger(__name__)
