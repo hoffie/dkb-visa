@@ -29,6 +29,7 @@ import logging
 import mechanize
 import time
 import unittest
+from http.cookiejar import MozillaCookieJar
 
 
 class RecordingBrowser(mechanize.Browser):
@@ -103,21 +104,24 @@ logger = logging.getLogger(__name__)
 class DkbScraper(object):
     BASEURL = "https://www.dkb.de/-"
 
-    def __init__(self, record_html=False, playback_html=False):
+    def __init__(self, record_html=False, playback_html=False, session_persistence_file=None):
         self.br = RecordingBrowser()
         dump_path = os.path.join(os.path.dirname(__file__), 'dumps')
         if record_html:
             self.br.enable_recording(dump_path)
         if playback_html:
             self.br.enable_playback(dump_path)
+        self.session_persistence_file = session_persistence_file
 
-    def login(self, userid, pin):
+    def login(self, userid, get_pin_callback):
         """
         Create a new session by submitting the login form
 
         @param str userid
-        @param str pin
+        @param callable get_pin_callback
         """
+        if self.try_persisted_session():
+            return
         logger.info("Starting login as user %s...", userid)
         br = self.br
 
@@ -135,6 +139,8 @@ class DkbScraper(object):
         # select login form:
         br.form = list(br.forms())[1]
 
+        pin = get_pin_callback()
+
         br.set_all_readonly(False)
         br.form["j_username"] = userid
         br.form["j_password"] = pin
@@ -146,11 +152,21 @@ class DkbScraper(object):
         br.form["osName"] = "UNIX"
         response = br.submit()
         if ("Wechseln Sie in die <strong>DKB-Banking-App</strong> und best" in response.read().decode('utf-8') ):
-            logger.debug("DKB-Banking-App detected")
             self.confirm_app_login()
         else:
-            logger.debug("Attempting TAN login")
             self.confirm_tan_login()
+
+    def try_persisted_session(self):
+        if not self.session_persistence_file:
+            return
+        try:
+            self.br.set_cookiejar(MozillaCookieJar(self.session_persistence_file))
+            self.br.cookiejar.load(ignore_discard=True)
+        except Exception as exc:
+            logger.debug('Failed to load persistence file %r', self.session_persistence_file, exc_info=exc)
+            return
+        logger.debug('Loaded cookiejar')
+        return self.is_logged_in()
 
     def confirm_app_login(self):
         logger.info("DKB-Banking-App detected, waiting for in-app login confirmation...")
@@ -220,6 +236,16 @@ class DkbScraper(object):
                 continue
 
         raise RuntimeError("Unable to find tan input form")
+
+    def is_logged_in(self):
+        self.br.open(self.BASEURL)
+        try:
+            link = self.br.find_link(text='Finanzstatus')
+            logger.debug('Session still valid')
+            return True
+        except mechanize.LinkNotFoundError:
+            logger.debug('Session invalid, will re-login')
+            return False
 
     def credit_card_transactions_overview(self):
         """
@@ -342,13 +368,25 @@ class DkbScraper(object):
         logger.info("Requesting CSV data...")
         self.br.follow_link(url_regex='csv')
         csv = self.br.response().read()
-        self.br.back()
+        #self.br.back()
         return csv
 
-    def logout(self):
+    def close(self):
         """
-        Properly ends the session.
+        Properly closes the session.
+
+        If no persistence is activated, performs a logout.
+        If persistence is requested, saves the session cookies and performs NO logout.
         """
+        if self.session_persistence_file:
+            logger.debug('Writing persistence file')
+            try:
+                self.br.cookiejar.save(ignore_discard=True)
+                return
+            except Exception as exc:
+                logger.info('failed to write persistence file %r', self.session_persistence_file, exc_info=exc)
+                # fall through and perform regular logout:
+        logger.debug('Performing logout')
         self.br.open(self.BASEURL + "?$javascript=disabled")
         self.br.follow_link(text='Abmelden')
 
@@ -535,6 +573,7 @@ if __name__ == '__main__':
     cli.add_argument("--debug", action="store_true")
     cli.add_argument("--debug-dump", action="store_true")
     cli.add_argument("--debug-mechanize", action="store_true")
+    cli.add_argument("--session-persistence-file")
 
     args = cli.parse_args()
     if not args.userid:
@@ -567,14 +606,7 @@ if __name__ == '__main__':
     if args.qif_account and len(args.qif_account) not in [0, len(args.cardid)]:
         cli.error("Please specify exactly one valid qif-account for each card id or none")
 
-    pin = ""
-    if os.isatty(0):
-        while not pin.strip():
-            pin = getpass('PIN: ')
-    else:
-        pin = sys.stdin.read().strip()
-
-    fetcher = DkbScraper(record_html=args.debug)
+    fetcher = DkbScraper(record_html=args.debug_dump, session_persistence_file=args.session_persistence_file)
 
     if args.debug_mechanize:
         mechanize_logger = logging.getLogger("mechanize")
@@ -584,7 +616,16 @@ if __name__ == '__main__':
         fetcher.br.set_debug_responses(True)
         #fetcher.br.set_debug_redirects(True)
 
-    fetcher.login(args.userid, pin)
+    def get_pin_callback():
+        if os.isatty(0):
+            pin = ""
+            while not pin.strip():
+                pin = getpass('PIN: ')
+            return pin
+        else:
+            return sys.stdin.read().strip()
+
+    fetcher.login(args.userid, get_pin_callback)
     fetcher.credit_card_transactions_overview()
     for idx in range(len(args.cardid)):
         fetcher.select_transactions(args.cardid[idx], from_date[idx], args.to_date[idx] if idx < len(args.to_date) else args.to_date[0])
@@ -602,7 +643,7 @@ if __name__ == '__main__':
                 cc_name = args.qif_account[idx]
             dkb2qif = DkbConverter(csv_text, cc_name=cc_name)
             dkb2qif.export_to(args.output[idx])
-    fetcher.logout()
+    fetcher.close()
 
 # Testing
 # =======
@@ -627,8 +668,8 @@ class TestDkb(unittest.TestCase):
         logger = logging.getLogger("mechanize")
         logger.addHandler(logging.StreamHandler(sys.stdout))
         logger.setLevel(logging.INFO)
-        f.login("test", "1234")
+        f.login("test", lambda: "1234")
         f.credit_card_transactions_overview()
         f.select_transactions("", "01.01.2013", "01.09.2013")
         print(f.get_transaction_csv())
-        f.logout()
+        f.close()
