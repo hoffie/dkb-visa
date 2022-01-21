@@ -31,6 +31,8 @@ import time
 import unittest
 from http.cookiejar import MozillaCookieJar
 
+CSV_ENCODING = 'latin1'
+
 
 class RecordingBrowser(mechanize.Browser):
     _recording_path = None
@@ -592,7 +594,8 @@ def download_transactions(cli, args, fetcher):
         csv_text = fetcher.get_transaction_csv()
 
         if args.csv:
-            if args.output == '-':
+            if args.output[idx] == '-':
+                csv_text = csv_text.decode(CSV_ENCODING)
                 f = sys.stdout
             else:
                 f = open(args.output[idx], 'wb')
