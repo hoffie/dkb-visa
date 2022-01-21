@@ -544,48 +544,7 @@ class DkbConverter(object):
                 f.write((line + "\n").encode(self.OUTPUT_CHARSET))
 
 
-if __name__ == '__main__':
-    from getpass import getpass
-    from argparse import ArgumentParser
-    from datetime import date
-
-    cli = ArgumentParser(description="Download VISA card transactions from DKB account. Specify exactly one userid and same number of cardid, output, qif-account, from-date and to-date arguments (qif-account and to-date are optional).")
-    cli.add_argument("--userid",
-                     help="Your user id (same as used for login)")
-    cli.add_argument("--cardid",
-                     action='append',
-                     help="Last 4 digits of your card number (*)")
-    cli.add_argument("--output", "-o",
-                     action='append',
-                     help="Output path (QIF)")
-    cli.add_argument("--qif-account",
-                     action='append',
-                     help="Default QIF account name (e.g. Aktiva:VISA) (*)")
-    cli.add_argument("--from-date",
-                     action='append',
-                     help="Export transactions as of... (DD.MM.YYYY) (*)")
-    cli.add_argument("--to-date",
-                     action='append',
-                     help="Export transactions until... (DD.MM.YYYY) (*)",
-                     default=[date.today().strftime('%d.%m.%Y')])
-    cli.add_argument("--raw", action="store_true",
-                     help="Store the raw CSV file instead of QIF")
-    cli.add_argument("--debug", action="store_true")
-    cli.add_argument("--debug-dump", action="store_true")
-    cli.add_argument("--debug-mechanize", action="store_true")
-    cli.add_argument("--session-persistence-file")
-
-    args = cli.parse_args()
-    if not args.userid:
-        cli.error("Please specify a valid user id")
-    if len(args.cardid) == 0:
-        cli.error("Please specify at least one valid card id")
-
-    level = logging.INFO
-    if args.debug:
-        level = logging.DEBUG
-    logging.basicConfig(level=level, format='%(message)s')
-
+def download_transactions(cli, args, fetcher):
     def is_valid_date(date):
         return date and bool(re.match('^\d{1,2}\.\d{1,2}\.\d{2,5}\Z', date))
 
@@ -593,18 +552,130 @@ if __name__ == '__main__':
         return False not in [is_valid_date(date) for date in dates]
 
     from_date = args.from_date
+    if not args.cardid:
+        cli.error("Please specify at least one valid card id")
+
     if len(args.cardid) == 1:
         while not is_valid_date(from_date[0]):
             from_date[0] = input("Start time: ")
     else:
         if len(args.from_date) != len(args.cardid) or not is_valid_dates(args.from_date):
             cli.error("Please specify exactly one valid start time for each card id")
-    if len(args.to_date) not in [1, len(args.cardid)] or not is_valid_dates(args.to_date):
+
+    to_date = [date.today().strftime('%d.%m.%Y')]
+    if args.to_date:
+        to_date = args.to_date
+    if len(to_date) not in [1, len(args.cardid)] or not is_valid_dates(to_date):
         cli.error("Please specify exactly one valid end time for each card id or none")
     if len(args.output) != len(args.cardid):
         cli.error("Please specify exactly one valid output path for each card id")
     if args.qif_account and len(args.qif_account) not in [0, len(args.cardid)]:
         cli.error("Please specify exactly one valid qif-account for each card id or none")
+
+    fetcher.credit_card_transactions_overview()
+    for idx in range(len(args.cardid)):
+        fetcher.select_transactions(args.cardid[idx], from_date[idx], to_date[idx] if idx < len(to_date) else to_date[0])
+        csv_text = fetcher.get_transaction_csv()
+
+        if args.raw:
+            if args.output == '-':
+                f = sys.stdout
+            else:
+                f = open(args.output[idx], 'wb')
+            f.write(csv_text)
+        else:
+            cc_name = None
+            if args.qif_account:
+                cc_name = args.qif_account[idx]
+            dkb2qif = DkbConverter(csv_text, cc_name=cc_name)
+            dkb2qif.export_to(args.output[idx])
+
+
+def fix_up_legacy_invocation(args, subparsers):
+    """
+    dkb.py used to only support a single action, now it supports multiple.
+
+    To do that, argparse subparsers have been introduced.
+    Sadly, this leads to a compatibility break.
+
+    Therefore, this function attempts to detect such cases and fix them up
+    for the new parser transparently.
+
+    A warning will be printed in order to get users to update their scripts.
+    """
+    has_action = False
+    for action in subparsers.choices:
+        if action in args:
+            has_action = True
+            return args
+    prog = args.pop(0)
+    global_args = []
+    transaction_args = []
+    while args:
+        arg = args.pop(0)
+        if arg == '--debug':
+            global_args.append(arg)
+        if arg == '--userid':
+            global_args.append(arg)
+            if not args:
+                return cli.error('invalid invocation')
+            global_args.append(args.pop(0))
+        else:
+            transaction_args.append(arg)
+    args = [prog] + global_args + ['download-transactions'] + transaction_args
+    sys.stderr.write(
+            'WARNING: You are using a legacy command line. '
+            'Please use the following instead:\n')
+    sys.stderr.write('  %s\n' % ' '.join(args))
+    return args
+
+
+if __name__ == '__main__':
+    from getpass import getpass
+    from argparse import ArgumentParser
+    from datetime import date
+
+    cli = ArgumentParser(
+            description="Download VISA card transactions from "
+            "DKB account. Specify exactly one userid and same number of "
+            "cardid, output, qif-account, from-date and to-date arguments "
+            "(qif-account and to-date are optional).")
+    cli.add_argument("--userid",
+                     help="Your user id (same as used for login)",
+                     required=True)
+    cli.add_argument("--debug", action="store_true")
+    cli.add_argument("--debug-dump", action="store_true")
+    cli.add_argument("--debug-mechanize", action="store_true")
+    cli.add_argument("--session-persistence-file")
+    subparsers = cli.add_subparsers(required=True)
+    p_download_transaction = subparsers.add_parser('download-transactions')
+    p_download_transaction.set_defaults(func=download_transactions)
+    p_download_transaction.add_argument("--cardid",
+                                        action='append',
+                                        help="Last 4 digits of your card number (*)")
+    p_download_transaction.add_argument("--output", "-o",
+                                        action='append',
+                                        help="Output path (QIF)")
+    p_download_transaction.add_argument("--qif-account",
+                                        action='append',
+                                        help="Default QIF account name (e.g. Aktiva:VISA) (*)")
+    p_download_transaction.add_argument("--from-date",
+                                        action='append',
+                                        help="Export transactions as of... (DD.MM.YYYY) (*)",
+                                        default=[date.today().replace(year=date.today().year-1).strftime('%d.%m.%Y')])
+    p_download_transaction.add_argument("--to-date",
+                                        action='append',
+                                        help="Export transactions until... (DD.MM.YYYY) (*)")
+    p_download_transaction.add_argument("--raw", action="store_true",
+                                        help="Store the raw CSV file instead of QIF")
+
+    argv = fix_up_legacy_invocation(sys.argv[:], subparsers)
+    args = cli.parse_args(argv[1:])
+
+    level = logging.INFO
+    if args.debug:
+        level = logging.DEBUG
+    logging.basicConfig(level=level, format='%(message)s')
 
     fetcher = DkbScraper(record_html=args.debug_dump, session_persistence_file=args.session_persistence_file)
 
@@ -626,23 +697,7 @@ if __name__ == '__main__':
             return sys.stdin.read().strip()
 
     fetcher.login(args.userid, get_pin_callback)
-    fetcher.credit_card_transactions_overview()
-    for idx in range(len(args.cardid)):
-        fetcher.select_transactions(args.cardid[idx], from_date[idx], args.to_date[idx] if idx < len(args.to_date) else args.to_date[0])
-        csv_text = fetcher.get_transaction_csv()
-
-        if args.raw:
-            if args.output == '-':
-                f = sys.stdout
-            else:
-                f = open(args.output[idx], 'wb')
-            f.write(csv_text)
-        else:
-            cc_name = None
-            if args.qif_account:
-                cc_name = args.qif_account[idx]
-            dkb2qif = DkbConverter(csv_text, cc_name=cc_name)
-            dkb2qif.export_to(args.output[idx])
+    args.func(cli, args, fetcher)
     fetcher.close()
 
 # Testing
