@@ -577,7 +577,7 @@ def download_transactions(cli, args, fetcher):
         fetcher.select_transactions(args.cardid[idx], from_date[idx], to_date[idx] if idx < len(to_date) else to_date[0])
         csv_text = fetcher.get_transaction_csv()
 
-        if args.raw:
+        if args.csv:
             if args.output == '-':
                 f = sys.stdout
             else:
@@ -666,8 +666,8 @@ if __name__ == '__main__':
     p_download_transaction.add_argument("--to-date",
                                         action='append',
                                         help="Export transactions until... (DD.MM.YYYY) (*)")
-    p_download_transaction.add_argument("--raw", action="store_true",
-                                        help="Store the raw CSV file instead of QIF")
+    p_download_transaction.add_argument("--csv", '--raw', action="store_true",
+                                        help="Store the raw CSV file")
 
     argv = fix_up_legacy_invocation(sys.argv[:], subparsers)
     args = cli.parse_args(argv[1:])
