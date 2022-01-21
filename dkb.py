@@ -368,7 +368,7 @@ class DkbScraper(object):
         logger.info("Requesting CSV data...")
         self.br.follow_link(url_regex='csv')
         csv = self.br.response().read()
-        #self.br.back()
+        self.br.back()
         return csv
 
     def close(self):
