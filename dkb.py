@@ -249,9 +249,9 @@ class DkbScraper(object):
             logger.debug('Session invalid, will re-login')
             return False
 
-    def credit_card_transactions_overview(self):
+    def transactions_overview(self):
         """
-        Navigates the internal browser state to the credit card
+        Navigates the internal browser state to the card
         transaction overview menu
         """
         logger.info("Navigating to 'Umsätze'...")
@@ -418,7 +418,7 @@ class DkbConverter(object):
     DEFAULT_CATEGORY = None
 
     # QIF-internal card name
-    CREDIT_CARD_NAME = 'VISA'
+    CARD_NAME = 'VISA'
 
     # input charset
     INPUT_CHARSET = 'latin1'
@@ -441,7 +441,7 @@ class DkbConverter(object):
     # transaction line:
     REQUIRED_FIELDS = 5
 
-    def __init__(self, csv_text, default_category=None, cc_name=None):
+    def __init__(self, csv_text, default_category=None, card_name=None):
         """
         Constructor
 
@@ -452,7 +452,7 @@ class DkbConverter(object):
         """
         self.csv_text = csv_text.decode(self.INPUT_CHARSET)
         self.DEFAULT_CATEGORY = default_category
-        self.CREDIT_CARD_NAME = cc_name or 'VISA'
+        self.CARD_NAME = card_name or 'VISA'
 
     def format_date(self, line):
         """
@@ -525,7 +525,7 @@ class DkbConverter(object):
         """
         logger.info("Running csv->qif conversion...")
         yield '!Account'
-        yield 'N' + self.CREDIT_CARD_NAME
+        yield 'N' + self.CARD_NAME
         yield '^'
         yield '!Type:Bank'
         lines = self.csv_text.split('\n')
@@ -588,7 +588,7 @@ def download_transactions(cli, args, fetcher):
     if args.qif_account and len(args.qif_account) not in [0, len(args.cardid)]:
         cli.error("Please specify exactly one valid qif-account for each card id or none")
 
-    fetcher.credit_card_transactions_overview()
+    fetcher.transactions_overview()
     for idx in range(len(args.cardid)):
         fetcher.select_transactions(args.cardid[idx], from_date[idx], to_date[idx] if idx < len(to_date) else to_date[0])
         csv_text = fetcher.get_transaction_csv() + b'\n'
@@ -605,10 +605,10 @@ def download_transactions(cli, args, fetcher):
                 f = open(args.output[idx], 'wb')
             f.write(csv_text)
         else:
-            cc_name = None
+            card_name = None
             if args.qif_account:
-                cc_name = args.qif_account[idx]
-            dkb2qif = DkbConverter(csv_text, cc_name=cc_name)
+                card_name = args.qif_account[idx]
+            dkb2qif = DkbConverter(csv_text, card_name=card_name)
             dkb2qif.export_to(args.output[idx])
 
 
@@ -745,7 +745,7 @@ class TestDkb(unittest.TestCase):
         logger.addHandler(logging.StreamHandler(sys.stdout))
         logger.setLevel(logging.INFO)
         f.login("test", lambda: "1234")
-        f.credit_card_transactions_overview()
+        f.transactions_overview()
         f.select_transactions("", "01.01.2013", "01.09.2013")
         print(f.get_transaction_csv())
         f.close()
