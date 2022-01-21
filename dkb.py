@@ -617,10 +617,8 @@ def fix_up_legacy_invocation(args, subparsers):
 
     A warning will be printed in order to get users to update their scripts.
     """
-    has_action = False
     for action in subparsers.choices:
         if action in args:
-            has_action = True
             return args
     prog = args.pop(0)
     global_args = []
@@ -638,7 +636,7 @@ def fix_up_legacy_invocation(args, subparsers):
             transaction_args.append(arg)
     args = [prog] + global_args + ['download-transactions'] + transaction_args
     sys.stderr.write(
-            'WARNING: You are using a legacy command line. '
+            'WARNING: You are using a legacy command line syntax. '
             'Please use the following instead:\n')
     sys.stderr.write('  %s\n' % ' '.join(args))
     return args
@@ -680,7 +678,7 @@ if __name__ == '__main__':
     p_download_transaction.add_argument("--to-date",
                                         action='append',
                                         help="Export transactions until... (DD.MM.YYYY) (*)")
-    p_download_transaction.add_argument("--csv", '--raw', action="store_true",
+    p_download_transaction.add_argument("--csv", "--raw", action="store_true",
                                         help="Store the raw CSV file")
 
     argv = fix_up_legacy_invocation(sys.argv[:], subparsers)
