@@ -285,59 +285,73 @@ class DkbScraper(object):
         @param str from_date dd.mm.YYYY
         @param str to_date dd.mm.YYYY
         """
+        from_name = 'postingDate'
+        to_name = 'toPostingDate'
         try:
             radio_ctrl = form.find_control("filterType")
+            form[radio_ctrl.name] = [u'DATE_RANGE']
         except Exception:
-            raise RuntimeError("Unable to find search period radio box")
-
-        form[radio_ctrl.name] = [u'DATE_RANGE']
+            try:
+                radio_ctrl = form.find_control("searchPeriodRadio")
+                form[radio_ctrl.name] = [u'1']
+                from_name = 'transactionDate'
+                to_name = 'toTransactionDate'
+            except Exception:
+                raise RuntimeError("Unable to find search period radio box")
 
         try:
-            from_item = form.find_control(label="vom")
+            from_item = form.find_control(name=from_name)
         except Exception:
-            raise RuntimeError("Unable to find 'vom' date field")
+            raise RuntimeError("Unable to find %r date field" % from_name)
 
         from_item.value = from_date
 
         try:
-            to_item = form.find_control(label="bis")
+            to_item = form.find_control(name=to_name)
         except Exception:
-            raise RuntimeError("Unable to find 'to' date field")
+            import pdb; pdb.set_trace()
+            raise RuntimeError("Unable to find %r date field" % to_name)
 
         to_item.value = to_date
 
-    def _select_credit_card(self, form, cardid):
+    def _select_card(self, form, cardid):
         """
         Internal.
 
-        Selects the correct credit card from the dropdown menu in the
+        Selects the correct card from the dropdown menu in the
         transaction selection form.
 
         @param mechanize.HTMLForm form
         @param str cardid: last 4 digits of the relevant card number
         """
         try:
-            cc_list = form.find_control(name="slAllAccounts", type='select')
+            card_list_form = form.find_control(name="slAllAccounts", type='select')
         except Exception:
-            raise RuntimeError("Unable to find credit card selection form")
+            raise RuntimeError("Unable to find card selection form")
 
-        for item in cc_list.get_items():
-            # find right credit card...
+        matching_names = []
+        matching_labels = []
+        for item in card_list_form.get_items():
+            # find right card...
             for label in item.get_labels():
-                pattern = r'\b\S{12}(?<=%s)\b' % re.escape(cardid)
-                if re.search(pattern, label.text, re.I):
-                    cc_list.value = [item.name]
-                    return
+                if cardid in label.text:
+                    matching_names.append(item.name)
+                    matching_labels.append(label.text)
 
-        raise RuntimeError("Unable to find the right credit card")
+        if len(matching_names) == 0:
+            raise RuntimeError("Unable to find card with label %r, check spacing" % cardid)
+        if len(matching_names) > 1:
+            raise RuntimeError("Multiple accounts (%s) match cardid %r, be more specific" % (', '.join(matching_labels), cardid))
+
+        card_list_form.value = matching_names
 
     def select_transactions(self, cardid, from_date, to_date):
         """
         Changes the current view to show all transactions between
-        from_date and to_date for the credit card identified by the
+        from_date and to_date for the card identified by the
         given card id.
 
-        @param str cardid: last 4 digits of your credit card's number
+        @param str cardid: last 4 digits of your card's number
         @param str from_date dd.mm.YYYY
         @param str to_date dd.mm.YYYY
         """
@@ -346,8 +360,8 @@ class DkbScraper(object):
                     from_date, to_date)
 
         br.form = form = self._get_transaction_selection_form()
-        self._select_credit_card(form, cardid)
-        # we need to reload so that we get the credit card form:
+        self._select_card(form, cardid)
+        # we need to reload to be sure to get the right form (credit vs. debit)
         br.submit()
 
         br.form = form = self._get_transaction_selection_form()
