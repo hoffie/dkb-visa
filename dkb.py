@@ -591,7 +591,11 @@ def download_transactions(cli, args, fetcher):
     fetcher.credit_card_transactions_overview()
     for idx in range(len(args.cardid)):
         fetcher.select_transactions(args.cardid[idx], from_date[idx], to_date[idx] if idx < len(to_date) else to_date[0])
-        csv_text = fetcher.get_transaction_csv()
+        csv_text = fetcher.get_transaction_csv() + b'\n'
+        if args.no_csv_preamble:
+            csv_text = b'\n'.join(
+                    csv_text.split(b'\n')[7:]
+            )
 
         if args.csv:
             if args.output[idx] == '-':
@@ -683,6 +687,8 @@ if __name__ == '__main__':
                                         help="Export transactions until... (DD.MM.YYYY) (*)")
     p_download_transaction.add_argument("--csv", "--raw", action="store_true",
                                         help="Store the raw CSV file")
+    p_download_transaction.add_argument("--no-csv-preamble", action="store_true",
+                                        help="Remove DKB's CSV preamble")
 
     argv = fix_up_legacy_invocation(sys.argv[:], subparsers)
     args = cli.parse_args(argv[1:])
