@@ -627,6 +627,8 @@ def fix_up_legacy_invocation(args, subparsers):
     for action in subparsers.choices:
         if action in args:
             return args
+    if args[1:] == ['--help']:
+        return args
     prog = args.pop(0)
     global_args = []
     transaction_args = []
