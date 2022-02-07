@@ -614,12 +614,12 @@ def download_transactions(cli, args, fetcher):
     for idx in range(len(args.cardid)):
         fetcher.select_transactions(args.cardid[idx], from_date[idx], to_date[idx] if idx < len(to_date) else to_date[0])
         csv_text = fetcher.get_transaction_csv() + b'\n'
-        if args.no_csv_preamble:
-            csv_text = b'\n'.join(
-                    csv_text.split(b'\n')[7:]
-            )
-
         if args.csv:
+            if args.no_csv_preamble:
+                csv_text = b'\n'.join(
+                        csv_text.split(b'\n')[7:]
+                )
+
             if args.output[idx] == '-':
                 csv_text = csv_text.decode(CSV_ENCODING)
                 f = sys.stdout
@@ -695,9 +695,11 @@ if __name__ == '__main__':
     p_download_transaction.set_defaults(func=download_transactions)
     p_download_transaction.add_argument("--cardid",
                                         action='append',
+                                        required=True,
                                         help="Last 4 digits of your card number (*)")
     p_download_transaction.add_argument("--output", "-o",
                                         action='append',
+                                        required=True,
                                         help="Output path (QIF)")
     p_download_transaction.add_argument("--qif-account",
                                         action='append',
