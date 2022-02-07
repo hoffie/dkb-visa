@@ -249,7 +249,7 @@ class DkbScraper(object):
             logger.debug('Session invalid, will re-login')
             return False
 
-    def transactions_overview(self):
+    def _load_transactions_overview(self):
         """
         Navigates the internal browser state to the card
         transaction overview menu
@@ -276,17 +276,18 @@ class DkbScraper(object):
 
         raise RuntimeError("Unable to find transaction selection form")
 
-    def _select_all_transactions_from(self, form, from_date, to_date):
+    def _submit_transaction_from_to_form(self, from_date, to_date):
         """
         Internal.
 
         Checks the radio box "Alle Umsätze vom" and populates the
         "from" and "to" with the given values.
+        Then, submits the form.
 
-        @param mechanize.HTMLForm form
         @param str from_date dd.mm.YYYY
         @param str to_date dd.mm.YYYY
         """
+        self.br.form = form = self._get_transaction_selection_form()
         from_name = 'postingDate'
         to_name = 'toPostingDate'
         try:
@@ -316,7 +317,12 @@ class DkbScraper(object):
 
         to_item.value = to_date
 
-    def _select_card(self, form, cardid):
+        # add missing $event control
+        self.br.form.new_control('hidden', '$event', {'value': 'search'})
+        self.br.form.fixup()
+        self.br.submit()
+
+    def _submit_transaction_list_form_with_card(self, cardid):
         """
         Internal.
 
@@ -326,26 +332,47 @@ class DkbScraper(object):
         @param mechanize.HTMLForm form
         @param str cardid: last 4 digits of the relevant card number
         """
-        try:
-            card_list_form = form.find_control(name="slAllAccounts", type='select')
-        except Exception:
-            raise RuntimeError("Unable to find card selection form")
-
         matching_names = []
         matching_labels = []
-        for item in card_list_form.get_items():
-            # find right card...
-            for label in item.get_labels():
-                if cardid in label.text:
-                    matching_names.append(item.name)
-                    matching_labels.append(label.text)
+        for form_name, number in self.get_card_list():
+            if cardid in number:
+                matching_names.append(form_name)
+                matching_labels.append(number)
 
         if len(matching_names) == 0:
             raise RuntimeError("Unable to find card with label %r, check spacing" % cardid)
         if len(matching_names) > 1:
             raise RuntimeError("Multiple accounts (%s) match cardid %r, be more specific" % (', '.join(matching_labels), cardid))
 
-        card_list_form.value = matching_names
+        form, card_list_select = self._get_card_list_form_select()
+        self.br.form = form
+        card_list_select.value = matching_names
+        # we need to reload to be sure to get the right form (credit vs. debit)
+        self.br.submit()
+
+    def _get_card_list_form_select(self):
+        """
+        Returns the card list form and form select
+        """
+        self._load_transactions_overview()
+        form = self._get_transaction_selection_form()
+        try:
+            card_list_select = form.find_control(name="slAllAccounts", type='select')
+        except Exception:
+            raise RuntimeError("Unable to find card selection form")
+
+        return form, card_list_select
+
+    def get_card_list(self):
+        """
+        Yields the list of cards as a list of tuples [(form_name, number)]
+        """
+        form, card_list_select = self._get_card_list_form_select()
+
+        for item in card_list_select.get_items():
+            # find right card...
+            for label in item.get_labels():
+                yield (item.name, label.text)
 
     def select_transactions(self, cardid, from_date, to_date):
         """
@@ -357,22 +384,11 @@ class DkbScraper(object):
         @param str from_date dd.mm.YYYY
         @param str to_date dd.mm.YYYY
         """
-        br = self.br
         logger.info("Selecting transactions in time frame %s - %s...",
                     from_date, to_date)
 
-        br.form = form = self._get_transaction_selection_form()
-        self._select_card(form, cardid)
-        # we need to reload to be sure to get the right form (credit vs. debit)
-        br.submit()
-
-        br.form = form = self._get_transaction_selection_form()
-        self._select_all_transactions_from(form, from_date, to_date)
-
-        # add missing $event control
-        br.form.new_control('hidden', '$event', {'value': 'search'})
-        br.form.fixup()
-        br.submit()
+        self._submit_transaction_list_form_with_card(cardid)
+        self._submit_transaction_from_to_form(from_date, to_date)
 
     def get_transaction_csv(self):
         """
@@ -560,6 +576,11 @@ class DkbConverter(object):
                 f.write((line + "\n").encode(self.OUTPUT_CHARSET))
 
 
+def list_cards(cli, args, fetcher):
+    for _, number in fetcher.get_card_list():
+        print('%s' % number)
+
+
 def download_transactions(cli, args, fetcher):
     def is_valid_date(date):
         return date and bool(re.match('^\d{1,2}\.\d{1,2}\.\d{2,5}\Z', date))
@@ -590,7 +611,6 @@ def download_transactions(cli, args, fetcher):
     if args.qif_account and len(args.qif_account) not in [0, len(args.cardid)]:
         cli.error("Please specify exactly one valid qif-account for each card id or none")
 
-    fetcher.transactions_overview()
     for idx in range(len(args.cardid)):
         fetcher.select_transactions(args.cardid[idx], from_date[idx], to_date[idx] if idx < len(to_date) else to_date[0])
         csv_text = fetcher.get_transaction_csv() + b'\n'
@@ -693,6 +713,8 @@ if __name__ == '__main__':
     p_download_transaction.add_argument("--no-csv-preamble", action="store_true",
                                         help="Remove DKB's CSV preamble")
 
+    p_list_cards = subparsers.add_parser('list-cards')
+    p_list_cards.set_defaults(func=list_cards)
     argv = fix_up_legacy_invocation(sys.argv[:], subparsers)
     args = cli.parse_args(argv[1:])
 
@@ -748,7 +770,7 @@ class TestDkb(unittest.TestCase):
         logger.addHandler(logging.StreamHandler(sys.stdout))
         logger.setLevel(logging.INFO)
         f.login("test", lambda: "1234")
-        f.transactions_overview()
+        f._load_transactions_overview()
         f.select_transactions("", "01.01.2013", "01.09.2013")
         print(f.get_transaction_csv())
         f.close()
