@@ -567,7 +567,9 @@ def download_transactions(cli, args, fetcher):
     def is_valid_dates(dates):
         return False not in [is_valid_date(date) for date in dates]
 
-    from_date = args.from_date
+    from_date = [date.today().replace(year=date.today().year-1).strftime('%d.%m.%Y')]
+    if args.from_date:
+        from_date = args.from_date
     if not args.cardid:
         cli.error("Please specify at least one valid card id")
 
@@ -682,8 +684,7 @@ if __name__ == '__main__':
                                         help="Default QIF account name (e.g. Aktiva:VISA) (*)")
     p_download_transaction.add_argument("--from-date",
                                         action='append',
-                                        help="Export transactions as of... (DD.MM.YYYY) (*)",
-                                        default=[date.today().replace(year=date.today().year-1).strftime('%d.%m.%Y')])
+                                        help="Export transactions as of... (DD.MM.YYYY) (*)")
     p_download_transaction.add_argument("--to-date",
                                         action='append',
                                         help="Export transactions until... (DD.MM.YYYY) (*)")
