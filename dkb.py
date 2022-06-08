@@ -179,7 +179,7 @@ class DkbScraper(object):
             if x >= 29:
                 print("Authentication timed out")
                 quit()
-            if not ("WAITING" in br.open('https://www.dkb.de/DkbTransactionBanking/content/LoginWithBoundDevice/LoginWithBoundDeviceProcess/confirmLogin.xhtml?$event=pollingVerification').read().decode('utf-8')):
+            if not ("PROCESSING" in br.open('https://www.dkb.de/DkbTransactionBanking/content/LoginWithBoundDevice/LoginWithBoundDeviceProcess/mfaConfirmLogin.xhtml?$event=pollingVerification').read().decode('utf-8')):
                 break
         br.open(self.BASEURL + "?$javascript=disabled")
         br.select_form(name="confirmForm")
